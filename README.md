@@ -8,7 +8,7 @@ Provided in dir dataset: Physionet in numpy format predicting mortatility risk
 Other dataset can be found [here](https://physionet.org/physiobank/database/challenge/2012/) for Physionet for [MIMIC-III dataset](https://mimic.physionet.org/).
 
 
-This implementation was able to achieve ~76% AUCROC on the provided evaluation dataset which is short of the ~77% claimed in the paper.
+This implementation was able to achieve ~76% AUCROC on the provided evaluation dataset which is short of the ~78% claimed in the paper.
 The configuration follows exactly the configuration in the original [implementation](https://github.com/jayheo/UA.git) by the authors.
 
 
