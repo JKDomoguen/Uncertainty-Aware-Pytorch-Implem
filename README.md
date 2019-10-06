@@ -10,4 +10,3 @@ Other dataset can be found [here](https://physionet.org/physiobank/database/chal
 
 
 
-Note: Was not able to achieve the ~78% AUCROC on evaluation dataset claimed in the [paper](https://arxiv.org/abs/1805.09653). At most only achieved 72% AUC-ROC
