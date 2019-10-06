@@ -20,7 +20,7 @@ from model import UA_Model
 from data_proc import *
 from utils import *
 import torch
-
+import copy
 
 parser = argparse.ArgumentParser()
 
@@ -162,18 +162,17 @@ class UA_Classifier():
         total_preds = []
         total_labels = []
         total_loss = []
-        if not if_test:
-            model = self.UA_model.train()
+        if if_test:
+            #model = self.UA_model.eval()
+            None
         else:
-            model = self.UA_model.eval()
-            #model = self.UA_model
+            #model = self.UA_model.train()
+            None
 
         for (inputs,labels) in data_loader:
             inputs,labels = Variable(inputs).cuda(), Variable(labels).cuda()
-            #if if_test:
-                #print(inputs.shape,labels.shape)
-            outputs = model(inputs)
-            #outputs = self.UA_model(inputs)
+            #outputs = model(inputs)
+            outputs = self.UA_model(inputs)
             loss = self.loss(outputs,labels)
             if not if_test:
                 self.opt_UA.zero_grad()
@@ -191,19 +190,23 @@ class UA_Classifier():
         total_preds = np.concatenate(total_preds,axis=0)
         total_labels = np.concatenate(total_labels,axis=0)
 
+        eval_preds = copy.deepcopy(total_preds)
+
         roc,auc = ROC_AUC(total_preds,total_labels)
         total_preds = total_preds >= 0.5
-
         acc = accuracy(total_preds,total_labels)
-        return total_loss,auc,acc,total_preds
+        if if_test:
+            preds = eval_preds
+        else:
+            preds = total_preds
+        return total_loss,auc,acc,preds
 
-        # print(" [*] Epoch: %d,      Train loss: %.4f,      Train AUC: %.4f,      Train ACC: %.4f"
-        #     % (i_+1, train_loss, train_auc, train_acc))
 
 
     def run(self,dataset):
-        f = open('output//output_text_NoDrpTest_0.25.txt','w')
-        f = open('output//output_text_NoDrpTest_0.25.txt','a')
+        text = "test_output_text_NoDrpTest_0.25"
+        f = open('output//'+text+'.txt','w')
+        f = open('output//'+text+'.txt','a')
         train_loader = Tensor_Dataset_loader(dataset['train_x'],dataset['train_y'],
             self.batch_size)
         # valid_loader = Tensor_Dataset_loader(dataset["val_x"],dataset["val_y"],
@@ -236,8 +239,8 @@ class UA_Classifier():
             val_stacked_preds = np.reshape(np.concatenate(total_val_preds, 0), [self.num_sampling, dataset['val_x'].shape[0], dataset['val_y'].shape[1]])
             val_preds = np.mean(val_stacked_preds, axis=0)
             val_loss = np.mean(total_val_loss, axis=0)
-            roc, valid_auc = ROC_AUC(val_preds, val_labels)
             val_preds = val_preds >= 0.5
+            roc, valid_auc = ROC_AUC(val_preds, val_labels)
             val_acc = accuracy(val_preds, val_labels)
             print(" [*] Epoch: %d, Validation loss: %.4f, Validation AUC: %.4f, Validation ACC: %.4f" % (i_+1, valid_loss, valid_auc, val_acc))
             print('\n','\n','\n',file=f)
@@ -252,12 +255,13 @@ class UA_Classifier():
                 total_eval_loss.append(eval_loss)
 
             eval_labels = dataset['eval_y'].numpy()
-            eval_labels = np.load("Physionet_dataset//physionet_dataset//1_eval_y.npy")
-            eval_stacked_preds = np.reshape(np.concatenate(total_eval_preds, 0), [self.num_sampling, dataset['eval_y'].shape[0], dataset['eval_y'].shape[1]])
+
+            #eval_labels = np.load("Physionet_dataset//physionet_dataset//1_eval_y.npy")
+            eval_stacked_preds = np.reshape(np.concatenate(total_eval_preds, 0), [self.num_sampling, dataset['eval_x'].shape[0], dataset['eval_y'].shape[1]])
             eval_preds = np.mean(eval_stacked_preds, axis=0)
             eval_loss = np.mean(total_eval_loss, axis=0)
             roc, eval_auc = ROC_AUC(eval_preds, eval_labels)
-            eval_preds = eval_preds >= 0.5
+            eval_preds = eval_preds >=0.5
             eval_acc = accuracy(eval_preds, eval_labels)
 
             print(" [*] Epoch: %d, Evaluation loss: %.4f, Evaluation AUC: %.4f, Evaluation ACC: %.4f" % (i_+1, eval_loss, eval_auc, eval_acc))
@@ -270,7 +274,7 @@ class UA_Classifier():
                 print(10*"**"+"Saved"+10*"**")
                 print('\n',file=f)
                 print(10*"**"+"Saved"+10*"**",file=f)
-                torch.save(self.UA_model.state_dict(),'NoDrpTest_0.25_Dropout_code'+'_'+str(i_+1)+'_%.4f'%(eval_loss)+'_%.4f'%(eval_auc)+'.pt')
+                torch.save(self.UA_model.state_dict(),text+'_'+str(i_+1)+'_%.4f'%(eval_loss)+'_%.4f'%(eval_auc)+'.pt')
         f.close()
 
 
