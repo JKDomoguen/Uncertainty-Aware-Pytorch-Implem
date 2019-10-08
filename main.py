@@ -153,9 +153,6 @@ class UA_Classifier():
         self.opt_UA = torch.optim.Adam(self.UA_model.parameters(),lr=self.lr,
             weight_decay=args.lamb_UA)
 
-        # for (name,param) in self.UA_model.named_parameters():
-        #     print(name,param.requires_grad)
-
 
 
     def run_epoch(self,data_loader,if_test=False):
@@ -163,16 +160,15 @@ class UA_Classifier():
         total_labels = []
         total_loss = []
         if if_test:
-            #model = self.UA_model.eval()
-            None
+            model = self.UA_model.eval()
+            #None
         else:
-            #model = self.UA_model.train()
-            None
+            model = self.UA_model.train()
+            #None
 
         for (inputs,labels) in data_loader:
             inputs,labels = Variable(inputs).cuda(), Variable(labels).cuda()
-            #outputs = model(inputs)
-            outputs = self.UA_model(inputs)
+            outputs = model(inputs)
             loss = self.loss(outputs,labels)
             if not if_test:
                 self.opt_UA.zero_grad()
@@ -182,9 +178,6 @@ class UA_Classifier():
             total_preds.append(outputs.detach().cpu().numpy())
             total_labels.append(labels.detach().cpu().numpy())
             total_loss.append(loss.detach().cpu().numpy())
-        # if not if_test:
-        #     self.opt_UA.zero_grad()
-        #     self.opt_UA.step()
 
         total_loss = np.mean(total_loss,axis=0)
         total_preds = np.concatenate(total_preds,axis=0)
@@ -205,14 +198,10 @@ class UA_Classifier():
 
     def run(self,dataset):
         text = "test_output_text_NoDrpTest_0.25"
-        f = open('output//'+text+'.txt','w')
+        #f = open('output//'+text+'.txt','w')
         f = open('output//'+text+'.txt','a')
         train_loader = Tensor_Dataset_loader(dataset['train_x'],dataset['train_y'],
             self.batch_size)
-        # valid_loader = Tensor_Dataset_loader(dataset["val_x"],dataset["val_y"],
-        # batch_size=self.batch_size,shuffle=False)
-        # test_loader = Tensor_Dataset_loader(dataset["eval_x"],dataset["eval_y"],
-        # batch_size=self.batch_size,shuffle=False)
         valid_loader = [(dataset['val_x'],dataset['val_y'])]
         test_loader = [(dataset['eval_x'],dataset['eval_y'])]
         print('Run Model')
@@ -229,7 +218,7 @@ class UA_Classifier():
             total_val_loss = []
 
             for sample in range(self.num_sampling):
-                valid_loss, _, _, valid_preds = self.run_epoch(valid_loader,if_test=True)
+                valid_loss, __k, __l, valid_preds = self.run_epoch(valid_loader,if_test=True)
                 total_val_preds.append(valid_preds)
                 total_val_loss.append(valid_loss)
 
@@ -239,8 +228,8 @@ class UA_Classifier():
             val_stacked_preds = np.reshape(np.concatenate(total_val_preds, 0), [self.num_sampling, dataset['val_x'].shape[0], dataset['val_y'].shape[1]])
             val_preds = np.mean(val_stacked_preds, axis=0)
             val_loss = np.mean(total_val_loss, axis=0)
-            val_preds = val_preds >= 0.5
             roc, valid_auc = ROC_AUC(val_preds, val_labels)
+            val_preds = val_preds >= 0.5
             val_acc = accuracy(val_preds, val_labels)
             print(" [*] Epoch: %d, Validation loss: %.4f, Validation AUC: %.4f, Validation ACC: %.4f" % (i_+1, valid_loss, valid_auc, val_acc))
             print('\n','\n','\n',file=f)
@@ -270,80 +259,16 @@ class UA_Classifier():
             print('\n','\n','\n',file=f)
             print(" [*] Epoch: %d, Evaluation loss: %.4f, Evaluation AUC: %.4f, Evaluation ACC: %.4f" % (i_+1, eval_loss, eval_auc, eval_acc),file=f)
             print("=======================================================================================",file=f)
+
+
+
+
             if (i_+1)%self.save_iter == 0:
                 print(10*"**"+"Saved"+10*"**")
                 print('\n',file=f)
                 print(10*"**"+"Saved"+10*"**",file=f)
                 torch.save(self.UA_model.state_dict(),text+'_'+str(i_+1)+'_%.4f'%(eval_loss)+'_%.4f'%(eval_auc)+'.pt')
         f.close()
-
-
-
-    # def fit(self,dataset,test='valid'):
-    #     train_loader = Tensor_Dataset_loader(dataset['train_x'],dataset['train_y'],
-    #         self.batch_size)
-    #     if test=='valid':
-    #         test_loader = Tensor_Dataset_loader(dataset["val_x"],dataset["val_y"],
-    #         self.batch_size,shuffle=False)
-    #     elif test == 'eval':
-    #         test_loader = Tensor_Dataset_loader(dataset["eval_x"],dataset["eval_y"],
-    #         self.batch_size,shuffle=False)
-    #     for i_ in range(self.max_epoch):
-    #         total_preds = []
-    #         total_labels = []
-    #         total_loss =  []
-    #         for (inputs,labels) in train_loader:
-    #             inputs,labels = Variable(inputs).cuda(), Variable(labels).cuda()
-    #             self.opt_UA.zero_grad()
-    #             outputs = self.UA_model(inputs)
-    #             loss = self.loss(outputs,labels)
-    #             loss.backward()
-    #             self.optimizer.step()
-
-    #             total_preds.append(outputs.numpy())
-    #             total_labels.append(labels.numpy())
-    #             total_loss.append(loss.numpy())
-
-    #         train_loss = np.mean(total_loss,axis=0)
-    #         total_preds = np.concatenate(total_preds,axis=0)
-    #         total_labels = np.concatenate(total_labels,axis=0)
-
-    #         train_roc,train_auc = ROC_AUC(total_preds,total_labels)
-    #         total_preds = total_preds >= 0.5
-    #         train_acc = accuracy(total_preds,total_labels)
-    #         print(" [*] Epoch: %d,      Train loss: %.4f,      Train AUC: %.4f,      Train ACC: %.4f"
-    #             % (i_+1, train_loss, train_auc, train_acc))
-
-    #         self.predict(test_loader)
-
-    # def predict(self,dataset):
-    #     test_loader = Tensor_Dataset_loader(dataset["val_x"],dataset["val_y"],
-    #         self.batch_size,shuffle=False)
-
-    #     model = self.UA_model.eval()
-    #     total_val_preds = []
-    #     total_val_loss = []
-    #     for sample in range(self.num_sampling):
-    #         total_preds = []
-    #         total_labels = []
-    #         total_loss = []
-    #         for (inputs,labels) in test_loader:
-    #             inputs,labels = Variable(inputs).cuda(), Variable(labels).cuda()
-    #             outputs = model(inputs)
-    #             loss = self.loss(outputs,labels)
-
-    #             total_preds.append(outputs.numpy())
-    #             total_labels.append(labels.numpy())
-    #             total_loss.append(loss.numpy())
-
-    #         test_loss = np.mean(total_loss,axis=0)
-    #         test_preds = np.concatenate(total_preds,axis=0)
-    #         #test_labels = np.concatenate(total_labels,axis=0)
-    #         #test_roc,test_auc = ROC_AUC(test_preds,test_labels)
-    #         test_preds = test_preds >= 0.5
-    #         #test_acc = accuracy(test_preds,test_labels)
-    #         total_val_preds.append(test_preds)
-    #         total_val_loss.append(total_loss)
 
 
 
@@ -366,20 +291,7 @@ def main(args):
     dataset["val_y"] = torch.from_numpy(np.load(path + 'val_y.npy')).float()
     dataset["eval_x"] = torch.from_numpy(np.load(path + 'eval_x.npy')).float()
     dataset["eval_y"] = torch.from_numpy(np.load(path + 'eval_y.npy')).float()
-    # if args.cuda:
-    #     dataset["train_x"] = torch.from_numpy(np.load(path + 'train_x.npy')).float()
-    #     dataset["train_y"] = torch.from_numpy(np.load(path + 'train_y.npy')).float()
-    #     dataset["val_x"] = torch.from_numpy(np.load(path + 'val_x.npy')).float()
-    #     dataset["val_y"] = torch.from_numpy(np.load(path + 'val_y.npy')).float()
-    #     dataset["eval_x"] = torch.from_numpy(np.load(path + 'eval_x.npy')).float()
-    #     dataset["eval_y"] = torch.from_numpy(np.load(path + 'eval_y.npy')).float()
-    # else:
-    #     dataset["train_x"] = torch.from_numpy(np.load(path + 'train_x.npy'))
-    #     dataset["train_y"] = torch.from_numpy(np.load(path + 'train_y.npy'))
-    #     dataset["val_x"] = torch.from_numpy(np.load(path + 'val_x.npy'))
-    #     dataset["val_y"] = torch.from_numpy(np.load(path + 'val_y.npy'))
-    #     dataset["eval_x"] = torch.from_numpy(np.load(path + 'eval_x.npy'))
-    #     dataset["eval_y"] = torch.from_numpy(np.load(path + 'eval_y.npy'))
+
 
     run(args,dataset)
 
