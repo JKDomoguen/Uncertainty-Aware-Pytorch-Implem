@@ -37,11 +37,6 @@ class Atention_Op(nn.Module):
         self.mu = nn.Linear(self.p_att_shape[0],self.p_att_shape[1])
         self.sigma = nn.Linear(self.p_att_shape[0],self.p_att_shape[1])
         # print("Attention OP")
-        # print(self.named_parameters(),'gaga')
-
-        # for name,param in self.named_parameters():
-        #     print('gaga')
-        #     print(name,param.data)
 
     def forward(self,rnn_outputs):
         #Create Mu
@@ -90,16 +85,19 @@ class UA_Model(nn.Module):
         print('Making Model...')
         self.lstm_net = nn.Sequential()
         self.dropout = 0.25
-        #self.model.add_module(lstm_block_cell(args.num_features,self.hidden_units,args.num_layers))
+
+        #Another LSTM layer
         self.lstm_net.add_module('lstm-net-1',nn.LSTM(input_size=self.embed_size,
             hidden_size=self.hidden_units,num_layers=self.num_layers,dropout=self.dropout))
+
         self.attention_op_alpha = Atention_Op(self.hidden_units,self.embed_size,
             self.steps,'alpha')
         self.attention_op_beta = Atention_Op(self.hidden_units,self.embed_size,
             self.steps,'beta')
 
-        #self.embedding = nn.Embedding(self.num_features,self.embed_size)
+        #embedding the input to features
         self.embedding = nn.Linear(self.num_features,self.embed_size,bias=False)
+        #FN prediction layer
         self.prediction = nn.Sequential()
         self.prediction.add_module('FC1',nn.Linear(self.embed_size,1))
         self.prediction.add_module('softmax,',nn.Sigmoid())
@@ -120,24 +118,23 @@ class UA_Model(nn.Module):
         if not x.is_cuda:
             x = x.cuda()
         embedding_v = self.embedding(x)
-        #print(embedding_v.shape,'Embedding v')
+
         reverse_embed = torch.flip(embedding_v,[1])
-        #print(reverse_embed.shape,'reverse embedding v and shape ', reverse_embed )
+
         alpha_rnn_outputs, _ = self.lstm_net(reverse_embed)
         beta_rnn_outputs, _ = self.lstm_net(reverse_embed)
-        #print(alpha_rnn_outputs.shape,'alpha rnn outputs')
-        #print(beta_rnn_outputs.shape,'beta rnn outputs')
+
         #alpha
         alpha_embed_output = self.attention_op_alpha (alpha_rnn_outputs)
         self.rev_alpha_embed_output = torch.flip(alpha_embed_output,[1])
-        #print(alpha_embed_output.shape,self.rev_alpha_embed_output.shape,'alpha embed output and reverse embed output')
+
         #beta
         beta_embed_output = self.attention_op_beta(beta_rnn_outputs)
         self.rev_beta_embed_output = torch.flip(beta_embed_output,[1])
-        #print(beta_embed_output.shape,self.rev_alpha_embed_output.shape,'beta embed output')
+
         #attention sum
         c_i = torch.sum(self.rev_alpha_embed_output*(self.rev_beta_embed_output*embedding_v),1)
-        #print(c_i.shape,'shape of attention sum')
+
         return self.prediction(c_i)
 
 
